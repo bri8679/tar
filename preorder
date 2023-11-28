@@ -1,0 +1,55 @@
+#include<dirent.h>
+#include<sys/stat.h>
+#include<stdlib.h>
+#include<string.h>
+#include <fcntl.h>
+#define BUFFSIZE 50
+void preorder(char *path, int outfd);
+int main(int argc, char *argv[]){
+    int outfd;
+    if(- 1 == (outfd = open(argv[2],O_WRONLY|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR))){
+        perror("Can't open out file");
+        exit(EXIT_FAILURE);
+    }
+    preorder(argv[1], outfd);
+    return 0;
+}
+void preorder(char *path, int outfd){
+    DIR *dir;
+    struct dirent *entry;
+    struct stat sb;
+    char *buff = malloc(BUFFSIZE);
+    int infd, write_out;
+
+    if((dir = opendir(path)) == NULL){
+        perror("Couldn't open the directory");
+        exit(EXIT_FAILURE);
+    }
+    chdir(path);
+
+    while((entry = readdir(dir))){
+        if(lstat(entry->d_name, &sb) == -1){
+            perror("Stat failed");
+            exit(EXIT_FAILURE);
+        }
+if(S_ISDIR(sb.st_mode)){
+            if(!strcmp(".", entry->d_name) || !strcmp("..", entry->d_name)){
+                continue;
+            }
+            preorder(entry->d_name, outfd);
+        }
+        else{
+            /*write contents of file*/
+            if((infd = open(entry->d_name, O_RDONLY)) == -1){
+                perror("Can't open file");
+                exit(EXIT_FAILURE);
+            }
+            while((write_out = read(infd, buff, BUFFSIZE))){
+                write(outfd, buff, write_out);
+            }
+        }
+    }
+    chdir("..");
+    closedir(dir);
+
+}
